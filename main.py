@@ -5,12 +5,12 @@ import conv
 import synchro
 import cal
 
-print "działa"
 
-data1 = ""
-data2 = ""
 
-conv(str(sys.argv[1]), str(sys.argv[2]))
+data1 = sys.argv[1]
+data2 = sys.argv[2]
+
+
 
 
 
