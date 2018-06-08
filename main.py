@@ -3,7 +3,6 @@
 import sys
 import math
 import numpy as np
-import matplotlib.pyplot as plt
 from scipy.io import wavfile
 import scipy
 
@@ -27,15 +26,19 @@ def synchro(name1, name2):
 		data2 = data2.sum(axis=1) / 2
 	index = np.argmax(data1)
 	index1 = np.argmax(data2)
+	print index, index1
+	print t[index1-index], t[0]
 	dif = (index-index1)
 	if (dif < 0):
 		dif= t[-1*dif]*pr_dz
 	else:
 		dif= t[dif]*pr_dz
-	rat = np.argmax(data1)/np.argmax(data2)
+
+	rat = np.argmax(data1)/float(np.argmax(data2))
 	return dif, rat
 
 #dif != 0, rat != 1 && rat > 0
+#szukanie cosunusa i przesuwanie go do przedziału [0; pi]
 def cal(dif, rat, d):
 	tel_p = dif/(math.sqrt(rat)-1)
 	tel_l = tel_p*math.sqrt(rat)
@@ -60,7 +63,7 @@ def cal(dif, rat, d):
 		c = (-1*math.pow(tel_l,2)+math.pow(tel_p,2)+math.pow(d,2))/(2*d)
 		h = math.pow(c,2)-math.pow(tel_p,2)
 		h = math.sqrt(abs(h)) # pierwiastek z h
-		k_tel_l = math.asin(h/(d-c))
+		k_tel_l = math.asin(h/(d-c)/100)
 		k_tel_p = math.asin(h/(c))
 		print "kąt ostry po prawej stronie"
 #kąt ostry po lewej stronie
@@ -92,5 +95,5 @@ def cal(dif, rat, d):
 data1 = sys.argv[1]
 data2 = sys.argv[2]
 x = synchro(data1, data2)
-print x[0]
-cal(x[0],x[1], float(sys.argv[3]))
+print x
+print cal(x[0],x[1], float(sys.argv[3]))
