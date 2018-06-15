@@ -6,87 +6,110 @@ import numpy as np
 from scipy.io import wavfile
 import scipy
 
-pr_dz = 340 #m/s
+
 #odległosc między telefonami w centymetrach
 def synchro(name1, name2):
+	pr_dz = 340 #m/s
+	#analiza w pierwszych 200000 próbek w celu znalezienia przesunięcia czasowego nagrania
+	synchr = 200000
+	#ucinamy ostanie ~ 20000 próbek odsiew zakłóceń jakie pojawiają się pod koniec nagrywania
+	cat = 20000
 	#wczytywanie pierwszego sygnału
-	fs, data1 = wavfile.read(name1)
+	fs1, data1 = wavfile.read(name1)
 	l_audio = len(data1.shape)
+	data1 = data1
 	if l_audio == 2:
    		data1 = data1.sum(axis=1) / 2
-	Ts = 1.0/fs # sampling interval in time
-	#print ("Timestep between samples Ts", Ts)
-	N = data1.shape[0]
-	secs = N / float(fs)
-	t = scipy.arange(0, secs, Ts)
+	Ts1 = 1.0/fs1
+	N1 = data1.shape[0]
+	secs1 = N1 / float(fs1)
+	t1 = scipy.arange(0, secs1, Ts1)
 	#wczytywanie drugiego sygnału
-	fs1, data2 = wavfile.read(name2)
+	fs2, data2 = wavfile.read(name2)
 	l_audio = len(data1.shape)
 	if l_audio == 2:
 		data2 = data2.sum(axis=1) / 2
-	index = np.argmax(data1)
-	index1 = np.argmax(data2)
-	print index, index1
-	print t[index1-index], t[0]
+	Ts2 = 1.0/fs2
+	N2 = data1.shape[0]
+	secs2 = N2 / float(fs2)
+	t2 = scipy.arange(0, secs2, Ts2)
+	#szukanie przesunięcia w nagraniach i amplitudy wynikającej z różnic technicznych
+	delta = np.argmax(data2[:synchr])-np.argmax(data1[:synchr])
+	conf_rat = data1[np.argmax(data1[:synchr])]/float(data2[np.argmax(data2[:synchr])])
+	#conf_rat = conf_rat+data1[np.argmin(data1[:synchr])]/float(data2[np.argmin(data2[:synchr])])	
+	#conf_rat = conf_rat/2
+
+	#print "Stosunek amplitud wynikające z różnic sprzętowych "+str(conf_rat)+" lub "+str(conf_rat_1)
+	
+	#obliczanie różnicy i sotsunku
+	index = synchr+np.argmax(data1[synchr:N1-cat])
+	index1 = synchr+np.argmax(data2[synchr:N2-cat])
+	
+	rat = abs(data1[index]/float(data2[index1]))
+	#rat = rat+abs(synchr+np.argmin(data1[synchr:N1-cat])/float(synchr+np.argmin(data2[synchr:N2-cat])))
+	#rat = rat/2
+	if delta <0:
+		index1 = index1+delta
+	else:
+		index = index-delta
 	dif = (index-index1)
 	if (dif < 0):
-		dif= t[-1*dif]*pr_dz
+		dif= t1[-1*dif]*pr_dz
 	else:
-		dif= t[dif]*pr_dz
+		dif= t1[dif]*pr_dz
 
-	rat = np.argmax(data1)/float(np.argmax(data2))
-	return dif, rat
+	print conf_rat
+	return dif, rat*conf_rat
 
 #dif != 0, rat != 1 && rat > 0
-#szukanie cosunusa i przesuwanie go do przedziału [0; pi]
+#przerobić na szukanie cosunusa i przesuwanie go do przedziału [0; pi](aktualnie szukanie sinusa)
 def cal(dif, rat, d):
-	tel_p = dif/(math.sqrt(rat)-1)
-	tel_l = tel_p*math.sqrt(rat)
+	tel_p = float(abs(dif/(math.sqrt(rat)-1)))
+	tel_l = float(tel_p*math.sqrt(rat))
+	#print dif, rat, tel_p, tel_l	
 	k_tel_p = 0
 	k_tel_l = 0
 #kąt rozwarty po prawej stronie
-	if ((math.pow(d,2)+math.pow(tel_l,2)) > math.pow(tel_p,2)) and tel_l>tel_p:
+	if tel_l>tel_p:
+		#if ((math.pow(d,2)+math.pow(tel_l,2)) > math.pow(tel_p,2)):
 		c = (math.pow(tel_l,2)-math.pow(tel_p,2)-math.pow(d,2))/(2*d)
-		print c, tel_l, tel_p
+		#print c, tel_l, tel_p
 		h = math.pow(tel_l,2)-math.pow(c,2)
 		h = math.sqrt(abs(h)) # pierwiastek z h
-		k_tel_l = math.asin(h/(d+c))
-		k_tel_p = math.asin(h/(c))
-		print "kąt rozwarty po prawej stronie"
+		k_tel_l = math.asin(tel_l/h)
+				
+		k_tel_p = math.asin(tel_p/h)	
+		#print "kąt rozwarty po prawej stronie"
 #kąt prosty po prawej
-	if ((math.pow(d,2)+math.pow(tel_l,2)) == math.pow(tel_p,2)):
-		k_tel_l = math.asin(tel_p/d)
-		k_tel_p = math.pi/3
-		print "kąt prosty po prawej"
+		if ((math.pow(d,2)+math.pow(tel_l,2)) == math.pow(tel_p,2)):
+			k_tel_l = math.asin(tel_p/h)
+			k_tel_p = math.pi/3
 #kąt ostry po prawej stronie
-	if (((math.pow(d,2)+math.pow(tel_l,2)) < math.pow(tel_p,2)) and (tel_l>tel_p)):
-		c = (-1*math.pow(tel_l,2)+math.pow(tel_p,2)+math.pow(d,2))/(2*d)
-		h = math.pow(c,2)-math.pow(tel_p,2)
-		h = math.sqrt(abs(h)) # pierwiastek z h
-		k_tel_l = math.asin(h/(d-c)/100)
-		k_tel_p = math.asin(h/(c))
-		print "kąt ostry po prawej stronie"
+		if ((math.pow(d,2)+math.pow(tel_l,2)) < math.pow(tel_p,2)):
+			c = (-1*math.pow(tel_l,2)+math.pow(tel_p,2)+math.pow(d,2))/(2*d)
+			h = math.pow(c,2)-math.pow(tel_p,2)
+			h = math.sqrt(abs(h)) # pierwiastek z h
+			k_tel_l = math.asin(tel_l/h)
+			k_tel_p = math.asin(tel_p/h)
 #kąt ostry po lewej stronie
-	if (((math.pow(d,2)+math.pow(tel_l,2)) < math.pow(tel_p,2)) and (tel_l<tel_p)):
-		c = (-1*math.pow(tel_p,2)+math.pow(tel_l,2)+math.pow(d,2))/(2*d)
-		h = math.pow(c,2)-math.pow(tel_l,2)
-		h = math.sqrt(abs(h)) # pierwiastek z h
-		k_tel_l = math.asin(h/(c))
-		k_tel_p = math.asin(h/(d-c))
-		print "kąt ostry po lewej stronie"
+	if tel_l<tel_p:
+		if ((math.pow(d,2)+math.pow(tel_l,2)) < math.pow(tel_p,2)):
+			c = (-1*math.pow(tel_p,2)+math.pow(tel_l,2)+math.pow(d,2))/(2*d)
+			h = math.pow(c,2)-math.pow(tel_l,2)
+			h = math.sqrt(abs(h)) # pierwiastek z h
+			k_tel_l = math.asin(tel_l/h)
+			k_tel_p = math.asin(tel_p/h)
 #kąt prosty po lewj
-	if ((math.pow(d,2)+math.pow(tel_p,2)) == math.pow(tel_l,2)):
-		k_tel_l = math.pi/3
-		k_tel_p = math.asin(tel_l/d)
-		print "kąt prosty po lewj"
+		if ((math.pow(d,2)+math.pow(tel_p,2)) == math.pow(tel_l,2)):
+			k_tel_l = math.pi/3
+			k_tel_p = math.asin(tel_p/h)
 #kąt rozwarty po prawej stronie 
-	if ((math.pow(d,2)+math.pow(tel_p,2)) > math.pow(tel_l,2))and tel_l<tel_p:
-		c = (math.pow(tel_p,2)-math.pow(tel_l,2)-math.pow(d,2))/(2*d)
-		h = math.pow(tel_l,2)-math.pow(c,2)
-		h = math.sqrt(abs(h)) # pierwiastek z h
-		k_tel_p = math.asin(h/(d+c))
-		k_tel_l = math.asin(h/(c))
-		print "kąt rozwarty po lewj stronie "
+		if ((math.pow(d,2)+math.pow(tel_p,2)) > math.pow(tel_l,2)):
+			c = (math.pow(tel_p,2)-math.pow(tel_l,2)-math.pow(d,2))/(2*d)
+			h = math.pow(tel_l,2)-math.pow(c,2)
+			h = math.sqrt(abs(h)) # pierwiastek z h
+			k_tel_p = math.asin(tel_p/h)
+			k_tel_l = math.asin(tel_l/h)
 	return tel_l, tel_p, math.degrees(k_tel_l), math.degrees(k_tel_p)
 
 
@@ -97,3 +120,7 @@ data2 = sys.argv[2]
 x = synchro(data1, data2)
 print x
 print cal(x[0],x[1], float(sys.argv[3]))
+
+
+#*.04.wav mniej więcej w tej samej odległości
+#*.06.wav za duże odległości, tak samo jak dla *.07.wav
