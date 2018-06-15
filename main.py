@@ -58,7 +58,7 @@ def synchro(name1, name2):
 	else:
 		dif= t1[dif]*pr_dz
 
-	print conf_rat
+	#print conf_rat
 	return dif, rat*conf_rat
 
 #dif != 0, rat != 1 && rat > 0
@@ -118,8 +118,9 @@ def cal(dif, rat, d):
 data1 = sys.argv[1]
 data2 = sys.argv[2]
 x = synchro(data1, data2)
-print x
-print cal(x[0],x[1], float(sys.argv[3]))
+x = cal(x[0],x[1], float(sys.argv[3]))
+print "Odległość 1. telefonu od źródła dźwięku = %.2f" % x[0]+" cm, dźwięk dochodzi pod kątem %.2f" %x[3]+" stopni"
+print "Odległość 2. telefonu od źródła dźwięku = %.2f" %x[1]+" cm, dźwięk dochodzi pod kątem %.2f" %x[3]+" stopni"
 
 
 #*.04.wav mniej więcej w tej samej odległości
